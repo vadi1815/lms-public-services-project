@@ -1,0 +1,49 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- dev
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- task: SonarQubePrepare@5
+  inputs:
+    SonarQube: 'SonaQubeSC'
+    scannerMode: 'CLI'
+    configMode: 'manual'
+    cliProjectKey: 'LMS_Project_Demo_LMS_Project_Demo_AYhOhKm33zbdQQY5BWTt'
+    cliSources: '.'
+
+- task: SonarQubeAnalyze@5
+
+- task: SonarQubePublish@5
+  inputs:
+    pollingTimeoutSec: '300'
+
+- task: Npm@1
+  inputs:
+    command: 'install'
+    workingDir: 'webapp'
+    verbose: true
+
+- task: CmdLine@2
+  displayName: Run Test Cases
+  inputs:
+    script: |
+      cd webapp
+      npm run test || exit 1
+
+- task: AzureStaticWebApp@0
+  inputs:
+    app_location: 'webapp'
+    app_build_command: 'npm run build'
+    output_location: 'dist'
+    skip_api_build: true
+    build_timeout_in_minutes: 10
+    azure_static_web_apps_api_token: 'TODO: azure_static_web_apps_api_token'
+    deployment_environment: 'dev'
+    production_branch: 'main'
