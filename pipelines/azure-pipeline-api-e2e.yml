@@ -33,7 +33,7 @@ steps:
   - task: Npm@1
     inputs:
       command: "install"
-      workingDir: "webapp"
+      workingDir: "api"
       verbose: true
 
   # Run unit tests
@@ -41,17 +41,30 @@ steps:
     displayName: Run Test Cases
     inputs:
       script: |
-        cd webapp
+        cd api
         npm run test || exit 1
 
-  # Build and deploy to Azure Static Web Apps
-  - task: AzureStaticWebApp@0
+  # Build docker image and push to ACR
+  # Create a service connection to Azure Container Registry and use it in the following task
+  - task: Docker@2
     inputs:
-      app_location: "webapp"
-      app_build_command: "npm run build"
-      output_location: "dist"
-      skip_api_build: true
-      build_timeout_in_minutes: 10
-      azure_static_web_apps_api_token: "TODO: azure_static_web_apps_api_token"
-      deployment_environment: "dev"
-      production_branch: "main"
+      containerRegistry: "for-pipelines"
+      repository: "lms-backend"
+      command: "buildAndPush"
+      Dockerfile: "**/api/Dockerfile"
+
+  # Deploy it app service web app
+  # Enable admin user in the ACR
+  # Make sure following configurations are added in the app service web app
+  # DOCKER_REGISTRY_SERVER_PASSWORD=password
+  # DOCKER_REGISTRY_SERVER_URL=https://acrname.azurecr.io
+  # DOCKER_REGISTRY_SERVER_USERNAME=acrname
+  - task: AzureRmWebAppDeployment@4
+    inputs:
+      ConnectionType: "AzureRM"
+      azureSubscription: "Azure subscription 1(<subscription id>)"
+      appType: "webAppContainer"
+      WebAppName: "dl-e2e-be-pipeline"
+      DockerNamespace: "dle2epipeline.azurecr.io"
+      DockerRepository: "lms-backend"
+      DockerImageTag: "$(Build.BuildId)"
